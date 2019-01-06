@@ -4,10 +4,13 @@ import numpy as np
 def get_best_states(node):
     res = []
     while node.children:
-        res.append([node.env.env.state, 
-            np.argmax(node.n),
+        a = np.argmax(node.n)
+        res.append([
+            node.env.env.state,
+            a,
+            node.w[a] / node.n[a],
             np.max(node.n),
-            ])
+        ])
         node = node.children[np.argmax(node.n)]
 
     return res
