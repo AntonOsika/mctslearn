@@ -1,12 +1,13 @@
 import numpy as np
 
+
 class Node:
     """ Node in the tree we are searching """
 
     # FIXME: update arguments and set them
     def __init__(
             self,
-            env,
+            state,
             actions,
             parent=None,
             reward=0,
@@ -17,7 +18,7 @@ class Node:
     ):
         self.children = {}  # map from action to node
 
-        self.env = env
+        self.state = state
         self.actions = actions
         self.reward = reward
         self.parent = parent
