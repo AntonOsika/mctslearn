@@ -3,7 +3,7 @@ from copy import deepcopy
 import numpy as np
 import gym
 
-from mctslearn.env import EnvDynamics
+from mctslearn.dynamics import EnvDynamics
 
 
 def test_env_step():

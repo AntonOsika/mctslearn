@@ -1,16 +1,17 @@
 from copy import deepcopy
 
-# Question:
+# Question (2018-12-28):
 # Are env states modified inplace or overwritten?
 # Lets assume inplace.
 # In such case we have to do a deepcopy before we step
-# After we have stepped, we can be sure that the we will never
+# After we have stepped, we can be sure that the we will never modify the leftover env?
+
 
 class EnvDynamics:
-    """ 
+    """
     env wrapper that statelessly processes states and returns them.
 
-    We refer to the `state` as everything that determines the, 
+    We refer to the `state` as everything that determines the,
     and the `observation` as what is returned from `env.step(action).
 
     Args:
@@ -18,28 +19,40 @@ class EnvDynamics:
 
     TODO(ao): Handle random seeds
     """
+
     def __init__(self, env_fn, state_variable_names):
         self.env = env_fn()
         self.state_variable_names = state_variable_names
 
+        # Makes sure we can step with the dynamics-env:
+        self.env.reset()
+
+        # Unwrap untill we get the action_space
+        unwrapped_env = self.env
+        while not hasattr(unwrapped_env, 'action_space'):
+            assert hasattr(unwrapped_env, 'env')
+            unwrapped_env = unwrapped_env.env
+
+        self.action_space = unwrapped_env.action_space
+
     def reset(self):
         """ Starts a new episode and returns state and observation """
         observation = self.env.reset()
-        state = self.get_state(self.env)
-        # Since we return the current state, internal state of `env` should never
-        # be manipulated unless explicit
+        state = self.env_to_state(self.env)
+        # Note: Since we return the current state, internal state of `env` is
+        # never manipulated before deepcopying
         return observation, state
 
     def step(self, state, action):
         state = deepcopy(state)
-        self.set_state(self.env, state)
+        self.assign_state_to_env(self.env, state)
 
         observation, reward, terminal, info = self.env.step(action)
-        state = self.get_state(self.env)
+        state = self.env_to_state(self.env)
 
         return observation, reward, terminal, info, state
 
-    def get_env_attr(self, env, key):
+    def _get_env_attr(self, env, key):
         """ Get value of (recursive list of) env variable name """
         if isinstance(key, (list, tuple)):
             value = env
@@ -48,7 +61,7 @@ class EnvDynamics:
             return value
         return getattr(env, key)
 
-    def set_env_attr(self, env, key, value):
+    def _set_env_attr(self, env, key, value):
         """ Assign value to (recursive list of) env variable name """
         if isinstance(key, (list, tuple)):
             container = env
@@ -58,12 +71,14 @@ class EnvDynamics:
         else:
             setattr(env, key, value)
 
-    def set_state(self, env, state):
+    def assign_state_to_env(self, env, state):
+        """ Assign state to provided env """
         for k, v in state.items():
-            self.set_env_attr(env, k, v)
+            self._set_env_attr(env, k, v)
 
-    def get_state(self, env):
+    def env_to_state(self, env):
+        """ Extract state from env """
         state = {}
         for key in self.state_variable_names:
-            state[key] = self.get_env_attr(env, key)
+            state[key] = self._get_env_attr(env, key)
         return state

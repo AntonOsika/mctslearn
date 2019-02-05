@@ -1,10 +1,15 @@
 """
 Notes:
-    Where do we need to store reward? In tree?
-    When doing simulations, we will go to edge, copy the env, and then
+    Where do we need to store reward? In tree.
+    When doing simulations, we will go to edge, copy the env, and then step.
+    How do we separate states? 
+    - Observations for now, is not enough for POMDP.
     Do we reason about choices or hash of states?
+    What is the interface of an agent?
+    - We initialise it with dynamics, and can "set state" 
 
 TODO:
+    Rename state -> obs
     Valid actions mask
     Two player score negation etc
 
@@ -14,6 +19,7 @@ from copy import deepcopy
 import numpy as np
 
 from mctslearn.tree import Node
+from mctslearn.dynamics import EnvDynamics
 
 # make hashing of arrays reasonably fast:
 np.set_printoptions(precision=8)
@@ -30,13 +36,13 @@ class Agent:
     """
     Creates agent for an environment.
     set_start_state() needs to be set before starting.
-    States are hashed with str().
+    Observations are hashed with str().
     The tree is persisted between episodes.
     """
 
     def __init__(
             self,
-            env,  # Warning – env must be deepcopyable
+            dynamics: EnvDynamics,
             deterministic_env=True,
             fully_observable_env=True,
             single_player_env=True,
@@ -50,44 +56,49 @@ class Agent:
         assert fully_observable_env
         assert single_player_env
 
-        self.env = env
+        self.dynamics = dynamics
         self.root = None
         self.nodes = {}  # Map from state to node
 
         # TODO: Handle continuous envs
-        self.actions = np.arange(env.action_space.n)
+        self.actions = np.arange(dynamics.action_space.n)
 
         self.puct_equation = puct_equation
         self.n_simulations = n_simulations
         self.puct_const = puct_const
 
-    def set_start_state(self, state, env):
-        """ Deepcopies env, called at start of episode """
-        env = deepcopy(env)
-        self.root = Node(env=env, actions=self.actions)
-        self.nodes[str(state)] = self.root
+        self.n_restarts = 0
 
-    def act(self, state, env):
-        if str(state) not in self.nodes:
-            self.set_start_state(state, env)
+    def set_start_state(self, obs, state):
+        """ Sets start state, called at start of episode """
+        # TODO: Decide on strategy for clearing old nodes
+        # TODO: try removing this and use logic in act instead
+
+        self.root = Node(state=state, actions=self.actions)
+        self.nodes[str(obs)] = self.root
+
+    def act(self, obs, state):
+        if str(obs) not in self.nodes:
+            self.n_restarts += 1
+            self.set_start_state(obs, state)
 
         for _ in range(self.n_simulations):
-            self.expand(state)
-        return self.select(state)
+            self.expand(obs, state)
+        return self.select(obs)
 
-    def select(self, state, deterministic=True):
+    def select(self, obs, deterministic=True):
         # TODO valid moves
-        node = self.nodes[str(state)]
+        node = self.nodes[str(obs)]
         if deterministic:
             return np.argmax(node.n)
         else:
             return np.random.choice(
                 np.arange(len(node.n)), p=node.n / node.n.sum())
 
-    def expand(self, state):
-        state_hash = str(state)
+    def expand(self, obs, state):
+        obs_hash = str(obs)
 
-        start_node = self.nodes[state_hash]
+        start_node = self.nodes[obs_hash]
 
         # Select the best path through tree until we find a leaf
         node = start_node
@@ -99,7 +110,7 @@ class Agent:
         # We now have an action that has not been expanded before
         # This could be because the game ended in this state
 
-        # If episode is over we just backpropagate:
+        # If episode is over we only backpropagate:
         if not node.terminal_state:
             node = self.next_node(node, action)
 
@@ -113,13 +124,12 @@ class Agent:
         # TODO: Check  if the state is not already visited
 
     def next_node(self, parent, action):
-        env = deepcopy(parent.env)
-        state, reward, terminal, info = env.step(action)
+        obs, reward, terminal, info, state = self.dynamics.step(state=parent.state, action=action)
 
         value = 0  # TODO: call a value function here
         prior = 1  # TODO: call a policy function here
         node = Node(
-            env=env,
+            state=state,
             actions=self.actions,
             parent=parent,
             reward=reward,
@@ -129,7 +139,7 @@ class Agent:
             terminal_state=terminal,
         )
         # TODO: if it exists, create multiple parents to that node here!
-        self.nodes[str(state)] = node
+        self.nodes[str(obs)] = node
         return node
 
     def puct_select(self, node):
