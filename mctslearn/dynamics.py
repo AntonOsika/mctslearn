@@ -1,10 +1,11 @@
 from copy import deepcopy
 
-# Question (2018-12-28):
-# Are env states modified inplace or overwritten?
+# Notes (2018-12-28):
+# Are openai gym env states modified inplace or overwritten?
 # Lets assume inplace.
-# In such case we have to do a deepcopy before we step
-# After we have stepped, we can be sure that the we will never modify the leftover env?
+# Because of this we do a state copy before we step
+# After we have stepped, we assume that the we will not modify the internal env
+# before we reset its state (in the next call to step) and hence we leave its state as is
 
 
 class EnvDynamics:
