@@ -1,17 +1,18 @@
 """
 Notes:
-    Where do we need to store reward? In tree.
-    When doing simulations, we will go to edge, copy the env, and then step.
-    How do we separate states? 
-    - Observations for now, is not enough for POMDP.
+    Where do we to store reward? 
+    - In tree. When doing simulations, we will go to edge, copy the state, and then step.
+    How do we identify if a state was seen before?
+    - Observations for now, is not enough for POMDP (needs inferred state).
     Do we reason about choices or hash of states?
+    - A combination, hash is nice since the agent should support any change in the 
+      state between acting.
     What is the interface of an agent?
-    - We initialise it with dynamics, and can "set state" 
+    - We initialise it with the dynamics, and can 'set start state'
 
 TODO:
-    Rename state -> obs
-    Valid actions mask
-    Two player score negation etc
+    Rename state -> obs to support POMDP
+    Add 'valid actions mask'
 
 """
 
@@ -138,7 +139,8 @@ class Agent:
             result_of_action=action,
             terminal_state=terminal,
         )
-        # TODO: if it exists, create multiple parents to that node here!
+        # TODO: if node exists, create multiple parents to that node here 
+        # This would imply that we go from tree -> graph
         self.nodes[str(obs)] = node
         return node
 
