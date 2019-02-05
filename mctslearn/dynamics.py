@@ -9,18 +9,25 @@ from copy import deepcopy
 
 class EnvDynamics:
     """
-    env wrapper that statelessly processes states and returns them.
+    env wrapper that statelessly processes states with step() and returns the step.
 
-    We refer to the `state` as everything that determines the,
+    We refer to the `state` as everything that determines the outcome of actions,
     and the `observation` as what is returned from `env.step(action).
 
-    Args:
-        env_fn: env factory, will only be called once.
+    Internally, `step()` will set the state of its internal _env and call
+    `_env.step(action)`
 
     TODO(ao): Handle random seeds
     """
 
     def __init__(self, env_fn, state_variable_names):
+        """
+        Args
+            env_fn: constructor of the openai env (only called once)
+            state_variable_names: list of variable names in the env that
+                are part of the state. Each variable name is a tuple of strings,
+                so that "recursive" lookup of member variables is possible.
+        """
         self.env = env_fn()
         self.state_variable_names = state_variable_names
 
